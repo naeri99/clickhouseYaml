@@ -1,0 +1,56 @@
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: simple-ch
+  namespace: clickhouse-system
+spec:
+  configuration:
+    clusters:
+      - name: simple
+        layout:
+          shardsCount: 2    # 2개 샤드로 축소
+          replicasCount: 1  # 레플리카 1개로 축소 (총 2개 Pod)
+    
+    # ZooKeeper 설정 (IP 주소 직접 사용)
+    zookeeper:
+      nodes:
+        - host: 10.44.6.22
+          port: 2181
+  
+  defaults:
+    templates:
+      podTemplate: clickhouse-pod
+      dataVolumeClaimTemplate: data-volume
+  
+  templates:
+    # Pod 템플릿
+    podTemplates:
+      - name: clickhouse-pod
+        spec:
+          # EKS Auto Mode용 노드 선택
+          nodeSelector:
+            eks.amazonaws.com/compute-type: auto
+          
+          containers:
+            - name: clickhouse
+              image: clickhouse/clickhouse-server:latest
+              
+              # 리소스 설정
+              resources:
+                requests:
+                  memory: "1Gi"
+                  cpu: "500m"
+                limits:
+                  memory: "2Gi"
+                  cpu: "1"
+    
+    # 각 Pod마다 개별 50Gi EBS 볼륨
+    volumeClaimTemplates:
+      - name: data-volume
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: auto-ebs-sc
+          resources:
+            requests:
+              storage: 50Gi
